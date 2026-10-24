@@ -25,7 +25,7 @@ Python, Streamlit, OpenAI API, Adzuna API, pytest and Git.
 Clone the repository and open the project folder:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/AIJobAssistantV3.git
+git clone https://github.com/deanobuckland195/AIJobAssistantV3.git
 cd AIJobAssistantV3
 ```
 
