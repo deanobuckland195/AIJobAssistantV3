@@ -1,0 +1,5 @@
+openai
+pytest
+pypdf
+requests
+streamlit
