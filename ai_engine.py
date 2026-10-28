@@ -2,18 +2,166 @@ from openai import OpenAI, APIConnectionError
 
 client = OpenAI()
 
+
 def analyse_job(job_description):
+    if not job_description.strip():
+        return []
+
     try:
         response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=f"Extract every technical skill explicitly required in this job description. Include programming languages, tools, frameworks, databases and APIs. Return only skill names separated by commas. Do not include explanations, examples, parentheses or numbering. Do not invent skills:\n\n{job_description}"
-    )
+            model="gpt-4.1-mini",
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Extract only technical skills explicitly required "
+                        "in the supplied job description. "
+                        "Do not invent skills or provide explanations. "
+                        "If no technical skills are explicitly stated, "
+                        "return an empty skills list."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": job_description
+                }
+            ],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "job_skills",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "skills": {
+                                "type": "array",
+                                "items": {"type": "string"}
+                            }
+                        },
+                        "required": ["skills"],
+                        "additionalProperties": False
+                    }
+                }
+            }
+        )
+
     except APIConnectionError:
-        print("Unable to connect to OpenAI. Please check your internet connection.")
+        print("Unable to connect to OpenAI.")
         raise
 
-    skills = [skill.strip().lower() for skill in response.output_text.split(",")]
-    return skills
+    import json
+
+    data = json.loads(response.output_text)
+
+    if (
+        not isinstance(data, dict)
+        or not isinstance(data.get("skills"), list)
+        or not all(isinstance(skill, str) for skill in data["skills"])
+    ):
+        raise ValueError("Invalid AI response: skills must be a list of strings.")
+
+    skills = [
+        skill.strip().lower()
+        for skill in data["skills"]
+        if skill.strip()
+    ]
+
+    return list(dict.fromkeys(skills))
+
+
+def analyse_job_requirements(job_description):
+    import json
+
+    if not job_description.strip():
+        return {
+            "essential_skills": [],
+            "desirable_skills": []
+        }
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=[
+            {
+                "role": "system",
+                "content": (
+                    "Extract only technical skills explicitly mentioned "
+                    "in the job description. "
+                    "Put required or essential skills in essential_skills. "
+                    "Put preferred, desirable or nice-to-have skills "
+                    "in desirable_skills. "
+                    "Do not invent skills. "
+                    "Return empty lists when no skills qualify."
+                )
+            },
+            {
+                "role": "user",
+                "content": job_description
+            }
+        ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "job_requirements",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "essential_skills": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "desirable_skills": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        }
+                    },
+                    "required": [
+                        "essential_skills",
+                        "desirable_skills"
+                    ],
+                    "additionalProperties": False
+                }
+            }
+        }
+    )
+
+    data = json.loads(response.output_text)
+
+    if (
+        not isinstance(data, dict)
+        or not isinstance(data.get("essential_skills"), list)
+        or not isinstance(data.get("desirable_skills"), list)
+        or not all(
+            isinstance(skill, str)
+            for category in ("essential_skills", "desirable_skills")
+            for skill in data[category]
+        )
+    ):
+        raise ValueError("Invalid AI response: expected two lists of skills.")
+
+    essential = list(dict.fromkeys(
+        skill.strip().lower()
+        for skill in data["essential_skills"]
+        if skill.strip()
+    ))
+
+    desirable = list(dict.fromkeys(
+        skill.strip().lower()
+        for skill in data["desirable_skills"]
+        if skill.strip()
+    ))
+
+    desirable = [
+        skill for skill in desirable
+        if skill not in essential
+    ]
+
+    return {
+        "essential_skills": essential,
+        "desirable_skills": desirable
+    }
+
 
 def generate_learning_plan(skill):
     try:
@@ -37,5 +185,10 @@ def extract_cv_skills(cv_text):
         print("Unable to connect to OpenAI while generating the cv skills.")
         raise
 
-    skills = [skill.strip().lower() for skill in response.output_text.split(",")]
-    return skills
+    skills = [
+        skill.strip().lower()
+        for skill in response.output_text.split(",")
+        if skill.strip().lower() not in ("", "none", "n/a", "no skills")
+    ]
+
+    return list(dict.fromkeys(skills))

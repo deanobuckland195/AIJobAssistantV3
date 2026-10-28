@@ -15,6 +15,12 @@ An AI-powered Python application that helps users explore UK technology jobs, an
 - Filter out senior-level vacancies
 - Interactive Streamlit web interface
 - Automated tests using pytest
+- - Skill alias normalisation (e.g. JS and JavaScript)
+- Job-specific weighted matching using essential and desirable skills
+- Salary range, remote/hybrid/on-site and experience-level filtering
+- Compare up to three jobs by salary, match score and missing skills
+- Demo Mode for comparing sample jobs without an Adzuna search
+- Structured AI responses with validation and error handling
 
 ## Technologies
 

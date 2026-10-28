@@ -56,4 +56,82 @@ def filter_senior_jobs(jobs):
         )
     ]
 
+def filter_by_salary(jobs, minimum_salary=0, maximum_salary=0):
+    filtered_jobs = []
+
+    for job in jobs:
+        salary_min = job.get("salary_min")
+        salary_max = job.get("salary_max")
+
+        if minimum_salary > 0:
+            if salary_min is None or salary_min < minimum_salary:
+                continue
+
+        if maximum_salary > 0:
+            if salary_max is None or salary_max > maximum_salary:
+                continue
+
+        filtered_jobs.append(job)
+
+    return filtered_jobs
+
+def filter_by_work_type(jobs, work_type):
+    if work_type == "Any":
+        return jobs
+
+    filtered_jobs = []
+
+    for job in jobs:
+        text = (
+            job.get("title", "") + " " +
+            job.get("description", "")
+        ).lower()
+
+        if work_type == "Remote":
+            remote_exclusions = (
+                "remote working is not available",
+                "no remote working",
+                "remote work is not available",
+                "not a remote role",
+                "no remote option"
+            )
+
+            if (
+                "remote" in text
+                and "hybrid" not in text
+                and not any(phrase in text for phrase in remote_exclusions)
+            ):
+                filtered_jobs.append(job)
+
+        elif work_type == "Hybrid":
+            if "hybrid" in text:
+                filtered_jobs.append(job)
+
+        elif work_type == "On-site":
+            if "on-site" in text or "onsite" in text:
+                filtered_jobs.append(job)
+
+    return filtered_jobs
+
+
+def filter_by_experience(jobs, experience_level):
+    if experience_level == "Any":
+        return jobs
+
+    experience_keywords = {
+        "Junior": ("junior", "entry level", "entry-level"),
+        "Graduate": ("graduate",),
+        "Apprenticeship": ("apprentice", "apprenticeship")
+    }
+
+    keywords = experience_keywords.get(experience_level, ())
+
+    return [
+        job for job in jobs
+        if any(
+            keyword in job.get("title", "").lower()
+            for keyword in keywords
+        )
+    ]
+
 
