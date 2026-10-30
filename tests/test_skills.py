@@ -44,3 +44,22 @@ def test_job_specific_skill_weights():
     )
 
     assert round(result, 2) == 85.71
+
+
+def test_only_desirable_skill_matched():
+    required_skills = ["python", "sql", "docker"]
+    matching_skills = ["docker"]
+
+    skill_weights = {
+        "python": 3,
+        "sql": 3,
+        "docker": 1
+    }
+
+    result = calculate_weighted_match(
+        required_skills,
+        matching_skills,
+        skill_weights
+    )
+
+    assert round(result, 2) == 14.29

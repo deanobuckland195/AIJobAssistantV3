@@ -77,3 +77,13 @@ Run the automated tests:
 ```bash
 python -m pytest tests -q
 ```
+
+## Latest Improvements
+
+- Fixed repeated AI calls during job comparison.
+- Applied consistent skill normalisation to single-job analysis.
+- Added essential and desirable skill weighting (3:1).
+- Improved error handling for damaged or unreadable PDFs.
+- Added error handling for AI-powered CV skill extraction.
+- Tested realistic job matching scenarios (86% and 14%).
+- All 30 automated tests passing.

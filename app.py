@@ -20,16 +20,31 @@ uploaded_cv = st.file_uploader(
 
 if uploaded_cv is not None:
     st.success("CV uploaded successfully!")
-    cv_text = read_cv(uploaded_cv)
-    st.write("CV text extracted successfully!")
+    try:
+        cv_text = read_cv(uploaded_cv)
+        st.write("CV text extracted successfully!")
+    except ValueError as error:
+        st.error(str(error))
+        st.stop()
     if st.button("Extract Skills from CV"):
         if cv_text.strip():
-            with st.spinner("AI is reading your CV..."):
-                cv_skills = extract_cv_skills(cv_text)
-                st.session_state["cv_skills"] = cv_skills
+            try:
+                with st.spinner("AI is reading your CV..."):
+                    cv_skills = extract_cv_skills(cv_text)
+                    st.session_state["cv_skills"] = cv_skills
 
-            st.success("CV skills extracted!")
-            st.write("Skills found in your CV:", cv_skills)
+            except APIConnectionError:
+                st.error("Unable to connect to OpenAI. Please check your connection.")
+
+            except AuthenticationError:
+                st.error("OpenAI authentication failed. Please check your API key.")
+
+            except (ValueError, AttributeError):
+                st.error("Unable to extract CV skills. Please try again.")
+
+            else:
+                st.success("CV skills extracted!")
+                st.write("Skills found in your CV:", cv_skills)
         else:
             st.warning("No readable text found in this CV.")
 
@@ -221,93 +236,93 @@ if demo_mode or "searched_jobs" in st.session_state:
                 tuple(sorted(str(job.get("id")) for job in selected_comparison_jobs))
             )
 
-        if not current_skills:
-            st.warning("Please enter your skills or extract skills from your CV first.")
-            st.stop()
+            if not current_skills:
+                st.warning("Please enter your skills or extract skills from your CV first.")
+                st.stop()
 
-        st.write("Skills being used for comparison:", current_skills)
+            st.write("Skills being used for comparison:", current_skills)
 
-        for job in selected_comparison_jobs:
-            job_description = job.get("description", "")
-            st.write("Checking job description for:", job.get("title", "Unknown job"))
-            st.write("Description length:", len(job_description))
+            for job in selected_comparison_jobs:
+                job_description = job.get("description", "")
+                st.write("Checking job description for:", job.get("title", "Unknown job"))
+                st.write("Description length:", len(job_description))
 
-            if len(job_description) == 500:
-                st.info(
-                    "This job description may be shortened by Adzuna. "
-                    "The AI match score will only reflect the available information."
-                )
+                if len(job_description) == 500:
+                    st.info(
+                        "This job description may be shortened by Adzuna. "
+                        "The AI match score will only reflect the available information."
+                    )
 
-            with st.expander("View job description"):
-                st.write(job_description)
+                with st.expander("View job description"):
+                    st.write(job_description)
 
-            if not job_description.strip():
-                st.warning(
-                    f"No description available for {job.get('title', 'Unknown job')}."
-                )
-                continue
+                if not job_description.strip():
+                    st.warning(
+                        f"No description available for {job.get('title', 'Unknown job')}."
+                    )
+                    continue
 
-            try:
-                with st.spinner(
-                    f"Analysing {job.get('title', 'Unknown job')}..."
-                ):
-                    requirements = analyse_job_requirements(job_description)
+                try:
+                    with st.spinner(
+                        f"Analysing {job.get('title', 'Unknown job')}..."
+                    ):
+                        requirements = analyse_job_requirements(job_description)
 
-                    essential_skills = {
-                        normalise_skill(skill)
-                        for skill in requirements["essential_skills"]
-                    }
+                        essential_skills = {
+                            normalise_skill(skill)
+                            for skill in requirements["essential_skills"]
+                        }
 
-                    desirable_skills = {
-                        normalise_skill(skill)
-                        for skill in requirements["desirable_skills"]
-                    }
+                        desirable_skills = {
+                            normalise_skill(skill)
+                            for skill in requirements["desirable_skills"]
+                        }
 
-                    detected_skills = sorted(essential_skills | desirable_skills)
+                        detected_skills = sorted(essential_skills | desirable_skills)
 
-            except (APIConnectionError, AuthenticationError, json.JSONDecodeError, ValueError):
-                st.error(
-                    f"Unable to analyse {job.get('title', 'Unknown job')}."
-                )
-                continue
+                except (APIConnectionError, AuthenticationError, json.JSONDecodeError, ValueError):
+                    st.error(
+                        f"Unable to analyse {job.get('title', 'Unknown job')}."
+                    )
+                    continue
 
-            required_skills = {
-                normalise_skill(skill)
-                for skill in detected_skills
-            }
-
-            user_skill_set = {
-                normalise_skill(skill)
-                for skill in current_skills
-            }
-
-            matching_skills = sorted(required_skills & user_skill_set)
-
-            missing_skills = sorted(required_skills - user_skill_set)
-
-            if required_skills:
-                skill_weights = {
-                    skill: 3 if skill in essential_skills else 1
-                    for skill in required_skills
+                required_skills = {
+                    normalise_skill(skill)
+                    for skill in detected_skills
                 }
 
-                match_score = calculate_weighted_match(
-                    required_skills,
-                    matching_skills,
-                    skill_weights
-                )
-            else:
-                match_score = None
+                user_skill_set = {
+                    normalise_skill(skill)
+                    for skill in current_skills
+                }
 
-            st.session_state["comparison_results"].append({
-                "job": job,
-                "detected_skills": detected_skills,
-                "matching_skills": matching_skills,
-                "missing_skills": missing_skills,
-                "score": match_score
-            })
+                matching_skills = sorted(required_skills & user_skill_set)
 
-        st.success("Job comparison analysis finished!")
+                missing_skills = sorted(required_skills - user_skill_set)
+
+                if required_skills:
+                    skill_weights = {
+                        skill: 3 if skill in essential_skills else 1
+                        for skill in required_skills
+                    }
+
+                    match_score = calculate_weighted_match(
+                        required_skills,
+                        matching_skills,
+                        skill_weights
+                    )
+                else:
+                    match_score = None
+
+                st.session_state["comparison_results"].append({
+                    "job": job,
+                    "detected_skills": detected_skills,
+                    "matching_skills": matching_skills,
+                    "missing_skills": missing_skills,
+                    "score": match_score
+                })
+
+            st.success("Job comparison analysis finished!")
 
     comparison_inputs = (
         tuple(sorted(normalise_skill(skill) for skill in current_skills)),
@@ -420,7 +435,19 @@ if st.button("Analyse Job"):
     if job_description.strip():
         try:
             with st.spinner("AI is analysing the job..."):
-                detected_skills = analyse_job(job_description)
+                requirements = analyse_job_requirements(job_description)
+
+                essential_skills = {
+                    normalise_skill(skill)
+                    for skill in requirements["essential_skills"]
+                }
+
+                desirable_skills = {
+                                       normalise_skill(skill)
+                                       for skill in requirements["desirable_skills"]
+                                   } - essential_skills
+
+                detected_skills = sorted(essential_skills | desirable_skills)
                 st.session_state["detected_skills"] = detected_skills
 
         except APIConnectionError:
@@ -435,12 +462,8 @@ if st.button("Analyse Job"):
             st.success("Job analysis complete!")
             st.write("Skills detected:", detected_skills)
             skill_weights = {
-                "python": 5,
-                "machine learning": 5,
-                "sql": 4,
-                "apis": 4,
-                "git": 3,
-                "docker": 2
+                skill: 3 if skill in essential_skills else 1
+                for skill in detected_skills
             }
 
             if user_skills.strip():
@@ -448,24 +471,21 @@ if st.button("Analyse Job"):
             else:
                 skills_to_use = st.session_state.get("cv_skills", [])
 
-            current_skills = [
-                skill.strip().lower()
+            current_skills = {
+                normalise_skill(skill)
                 for skill in skills_to_use
                 if skill.strip()
-            ]
+            }
 
-            matching_skills = [
-                skill for skill in detected_skills
-                if skill in current_skills
-            ]
+            required_skills = {
+                normalise_skill(skill)
+                for skill in detected_skills
+            }
 
-            missing_skills = [
-                skill for skill in detected_skills
-                if skill not in current_skills
-            ]
-
+            matching_skills = sorted(required_skills & current_skills)
+            missing_skills = sorted(required_skills - current_skills)
             match_score = calculate_weighted_match(
-                detected_skills,
+                required_skills,
                 matching_skills,
                 skill_weights
             )
